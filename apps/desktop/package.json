@@ -46,8 +46,10 @@
     },
     "publish": [
       {
-        "provider": "generic",
-        "url": "https://esugzfzsytruyvsejdfq.supabase.co/storage/v1/object/public/app-updates/"
+        "provider": "github",
+        "owner": "waitohujin1-hue",
+        "repo": "zone-app",
+        "releaseType": "release"
       }
     ]
   },

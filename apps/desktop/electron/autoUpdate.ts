@@ -1,5 +1,10 @@
-import { autoUpdater } from 'electron-updater'
+// electron-updater is a CommonJS module; Node's ESM loader can't statically
+// detect its named exports, so it must be imported as a default and
+// destructured at runtime instead of `import { autoUpdater } from '...'`.
+import electronUpdater from 'electron-updater'
 import { app, dialog, type BrowserWindow } from 'electron'
+
+const { autoUpdater } = electronUpdater
 
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
 
