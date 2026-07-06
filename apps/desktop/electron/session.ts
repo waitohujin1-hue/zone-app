@@ -1,4 +1,4 @@
-import { powerMonitor } from 'electron'
+import { powerMonitor, Notification } from 'electron'
 import type { BrowserWindow } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { store } from './store.ts'
@@ -9,6 +9,11 @@ import type { SessionConfig, SessionState, PomodoroConfig, FocusRecord, TodoItem
 
 const TICK_MS = 1000
 const SITE_ENFORCE_MS = 2000
+
+function notifyPhaseChange(title: string, body: string): void {
+  if (!Notification.isSupported()) return
+  new Notification({ title, body }).show()
+}
 
 function idleState(): SessionState {
   return {
@@ -136,9 +141,11 @@ export class SessionManager {
       this.state.pomodoroPhase = isLong ? 'longBreak' : 'break'
       const minutes = isLong ? pomodoro.longBreakMinutes : pomodoro.breakMinutes
       this.state.phaseEndsAt = now + minutes * 60_000
+      notifyPhaseChange(isLong ? '長休憩を始めましょう' : '休憩を始めましょう', `作業お疲れさまでした。${minutes}分休憩します。`)
     } else {
       this.state.pomodoroPhase = 'work'
       this.state.phaseEndsAt = now + pomodoro.workMinutes * 60_000
+      notifyPhaseChange('作業を再開しましょう', `休憩終了です。${pomodoro.workMinutes}分の作業を始めます。`)
     }
     this.persist()
   }

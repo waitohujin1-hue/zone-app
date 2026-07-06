@@ -3,6 +3,11 @@ import { useEffect, useRef, useState } from 'react'
 type BgmMode = 'off' | 'white' | 'brown' | 'binaural-alpha' | 'binaural-gamma' | 'files'
 type StoppableNode = AudioNode & { stop?: () => void }
 
+// The slider still reads 0-100%, but actual output is scaled down to ~10%
+// of that on top -- generated noise/tones at full slider volume were far
+// louder than a background focus aid should be.
+const MASTER_ATTENUATION = 0.1
+
 const MODE_LABELS: Record<BgmMode, string> = {
   off: 'オフ',
   white: 'ホワイトノイズ',
@@ -38,7 +43,7 @@ export function BgmPlayer() {
     if (!audioCtxRef.current) {
       const ctx = new AudioContext()
       const gain = ctx.createGain()
-      gain.gain.value = volume
+      gain.gain.value = volume * MASTER_ATTENUATION
       gain.connect(ctx.destination)
       audioCtxRef.current = ctx
       gainRef.current = gain
@@ -108,9 +113,9 @@ export function BgmPlayer() {
       // audible click/pop), especially while dragging the slider. Ramping
       // to the target over a short time constant keeps it smooth.
       gain.gain.cancelScheduledValues(ctx.currentTime)
-      gain.gain.setTargetAtTime(volume, ctx.currentTime, 0.015)
+      gain.gain.setTargetAtTime(volume * MASTER_ATTENUATION, ctx.currentTime, 0.015)
     }
-    if (audioElRef.current) audioElRef.current.volume = volume
+    if (audioElRef.current) audioElRef.current.volume = volume * MASTER_ATTENUATION
   }, [volume])
 
   useEffect(() => {
@@ -131,7 +136,7 @@ export function BgmPlayer() {
   useEffect(() => {
     if (mode === 'files' && audioElRef.current && files[fileIndex]) {
       audioElRef.current.src = files[fileIndex].url
-      audioElRef.current.volume = volume
+      audioElRef.current.volume = volume * MASTER_ATTENUATION
       void audioElRef.current.play()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
