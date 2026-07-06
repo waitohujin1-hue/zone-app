@@ -101,7 +101,15 @@ export function BgmPlayer() {
   }, [mode])
 
   useEffect(() => {
-    if (gainRef.current) gainRef.current.gain.value = volume
+    const ctx = audioCtxRef.current
+    const gain = gainRef.current
+    if (ctx && gain) {
+      // Jumping gain.value directly creates a waveform discontinuity (an
+      // audible click/pop), especially while dragging the slider. Ramping
+      // to the target over a short time constant keeps it smooth.
+      gain.gain.cancelScheduledValues(ctx.currentTime)
+      gain.gain.setTargetAtTime(volume, ctx.currentTime, 0.015)
+    }
     if (audioElRef.current) audioElRef.current.volume = volume
   }, [volume])
 

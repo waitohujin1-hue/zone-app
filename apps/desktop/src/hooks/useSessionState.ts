@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { SessionState } from '../shared/types'
+import { playBreakChime, playWorkChime } from '../lib/chime'
 
 const IDLE_STATE: SessionState = {
   active: false,
@@ -21,17 +22,29 @@ const IDLE_STATE: SessionState = {
 
 export function useSessionState() {
   const [state, setState] = useState<SessionState>(IDLE_STATE)
+  const prevPhaseRef = useRef<SessionState['pomodoroPhase']>(null)
+
+  const applyUpdate = (s: SessionState) => {
+    const prevPhase = prevPhaseRef.current
+    if (s.active && prevPhase !== null && s.pomodoroPhase !== null && s.pomodoroPhase !== prevPhase) {
+      if (s.pomodoroPhase === 'work') playWorkChime()
+      else playBreakChime()
+    }
+    prevPhaseRef.current = s.pomodoroPhase
+    setState(s)
+  }
 
   useEffect(() => {
     let cancelled = false
     window.zone.session.get().then((s) => {
-      if (!cancelled) setState(s)
+      if (!cancelled) applyUpdate(s)
     })
-    const unsubscribe = window.zone.session.onUpdate((s) => setState(s))
+    const unsubscribe = window.zone.session.onUpdate((s) => applyUpdate(s))
     return () => {
       cancelled = true
       unsubscribe()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return state
