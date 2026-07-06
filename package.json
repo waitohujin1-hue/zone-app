@@ -1,0 +1,18 @@
+{
+  "name": "zone",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "desktop:dev": "npm run dev -w @zone/desktop",
+    "desktop:build": "npm run build -w @zone/desktop",
+    "desktop:dist:win": "npm run dist:win -w @zone/desktop",
+    "desktop:publish-update": "node scripts/publish-update.mjs",
+    "dashboard:dev": "npm run dev -w @zone/dashboard",
+    "dashboard:build": "npm run build -w @zone/dashboard"
+  }
+}
