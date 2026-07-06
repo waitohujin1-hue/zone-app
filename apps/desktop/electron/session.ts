@@ -161,6 +161,7 @@ export class SessionManager {
         interruptionsBlocked: finished.interruptionsBlocked,
         mode: finished.mode,
       }
+      notifyPhaseChange('セッション終了', `お疲れさまでした。${record.durationMinutes}分集中しました。`)
       const history = store.get('history')
       history.unshift(record)
       store.set('history', history.slice(0, 200))

@@ -35,3 +35,11 @@ export function playWorkChime(): void {
   playTone(now, 880, 0.5, 0.15)
   playTone(now + 0.18, 660, 0.6, 0.15)
 }
+
+/** Three ascending notes -- signals the whole session finished. */
+export function playSessionEndChime(): void {
+  const now = getContext().currentTime
+  playTone(now, 523, 0.4, 0.15)
+  playTone(now + 0.16, 659, 0.4, 0.15)
+  playTone(now + 0.32, 784, 0.7, 0.15)
+}

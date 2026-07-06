@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SessionState } from '../shared/types'
-import { playBreakChime, playWorkChime } from '../lib/chime'
+import { playBreakChime, playWorkChime, playSessionEndChime } from '../lib/chime'
 
 const IDLE_STATE: SessionState = {
   active: false,
@@ -23,6 +23,7 @@ const IDLE_STATE: SessionState = {
 export function useSessionState() {
   const [state, setState] = useState<SessionState>(IDLE_STATE)
   const prevPhaseRef = useRef<SessionState['pomodoroPhase']>(null)
+  const prevActiveRef = useRef<boolean | null>(null)
 
   const applyUpdate = (s: SessionState) => {
     const prevPhase = prevPhaseRef.current
@@ -30,7 +31,11 @@ export function useSessionState() {
       if (s.pomodoroPhase === 'work') playWorkChime()
       else playBreakChime()
     }
+    if (prevActiveRef.current === true && !s.active) {
+      playSessionEndChime()
+    }
     prevPhaseRef.current = s.pomodoroPhase
+    prevActiveRef.current = s.active
     setState(s)
   }
 
