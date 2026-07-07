@@ -23,6 +23,12 @@ const ACCOUNT_PULL_INTERVAL_MS = 2 * 60 * 1000
 // refresh the calendar token obtained during account login (see accountAuth.ts).
 loadDotenv({ path: app.isPackaged ? path.join(process.resourcesPath, '.env') : path.join(APP_ROOT, '.env') })
 
+// Without this, Windows toast notifications (see session.ts) show up as
+// coming from "Electron" instead of "zone" -- Windows identifies the
+// notifying app by AppUserModelID, which defaults to Electron's own unless
+// set explicitly. Must match package.json's build.appId.
+app.setAppUserModelId('com.zone.focus')
+
 let win: BrowserWindow | null = null
 let sessionManager: SessionManager
 
