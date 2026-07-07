@@ -48,6 +48,9 @@
       "target": "nsis",
       "requestedExecutionLevel": "requireAdministrator"
     },
+    "nsis": {
+      "differentialPackage": false
+    },
     "publish": [
       {
         "provider": "github",
