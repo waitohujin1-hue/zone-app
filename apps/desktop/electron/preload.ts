@@ -24,6 +24,7 @@ const api: ZoneApi = {
       ipcRenderer.on('session:update', listener)
       return () => ipcRenderer.removeListener('session:update', listener)
     },
+    debugStop: (): Promise<void> => ipcRenderer.invoke('session:debugStop'),
   },
   settings: {
     get: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
@@ -31,10 +32,12 @@ const api: ZoneApi = {
   },
   todos: {
     list: (): Promise<TodoItem[]> => ipcRenderer.invoke('todos:get'),
-    add: (text: string): Promise<TodoItem[]> => ipcRenderer.invoke('todos:add', text),
+    add: (text: string, estimatedMinutes: number | null): Promise<TodoItem[]> =>
+      ipcRenderer.invoke('todos:add', text, estimatedMinutes),
     toggle: (id: string): Promise<TodoItem[]> => ipcRenderer.invoke('todos:toggle', id),
     remove: (id: string): Promise<TodoItem[]> => ipcRenderer.invoke('todos:remove', id),
     reorder: (orderedIds: string[]): Promise<TodoItem[]> => ipcRenderer.invoke('todos:reorder', orderedIds),
+    rename: (id: string, text: string): Promise<TodoItem[]> => ipcRenderer.invoke('todos:rename', id, text),
     setEstimate: (id: string, minutes: number | null): Promise<TodoItem[]> =>
       ipcRenderer.invoke('todos:setEstimate', id, minutes),
   },

@@ -1,5 +1,5 @@
 import { config as loadDotenv } from 'dotenv'
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, Menu } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { SessionManager } from './session.ts'
@@ -7,6 +7,7 @@ import { registerIpcHandlers } from './ipc.ts'
 import { pushFocusRecord, pushTodoUpsert, pullAccountData } from './accountSync.ts'
 import { store } from './store.ts'
 import { initAutoUpdate } from './autoUpdate.ts'
+import { openReleaseNotesWindow } from './releaseNotes.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const APP_ROOT = path.join(__dirname, '..')
@@ -53,6 +54,26 @@ function createWindow() {
   }
 }
 
+function buildAppMenu(): void {
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      { role: 'fileMenu' },
+      { role: 'editMenu' },
+      { role: 'viewMenu' },
+      { role: 'windowMenu' },
+      {
+        label: 'ヘルプ',
+        submenu: [
+          {
+            label: 'リリースノート',
+            click: () => openReleaseNotesWindow(APP_ROOT),
+          },
+        ],
+      },
+    ]),
+  )
+}
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
@@ -71,6 +92,7 @@ app.whenReady().then(() => {
     if (updatedTodo) void pushTodoUpsert(updatedTodo, store.get('todos').findIndex((t) => t.id === updatedTodo.id))
   })
   registerIpcHandlers(sessionManager)
+  buildAppMenu()
   createWindow()
   initAutoUpdate(() => win)
 

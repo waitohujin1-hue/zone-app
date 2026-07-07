@@ -68,6 +68,17 @@ export class SessionManager {
     return this.state
   }
 
+  /**
+   * Debug-only escape hatch (triggered by typing "stop" as a TODO in the
+   * renderer) so testing the end-of-session flow doesn't require waiting
+   * out a real timer. Everything else about "no manual stop" still holds --
+   * this bypasses the endsAt check, it doesn't add a new way to cancel.
+   */
+  debugForceFinish(): void {
+    if (!this.state.active) return
+    this.finish()
+  }
+
   async start(config: SessionConfig): Promise<SessionState> {
     if (this.state.active) return this.state
     const now = Date.now()

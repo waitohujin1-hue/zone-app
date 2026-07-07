@@ -22,6 +22,8 @@ export interface SyncedTodo {
   done: boolean
   estimatedMinutes: number | null
   actualMinutes: number
+  /** Priority rank -- lower number = higher priority (1 is top priority). null = unranked. */
+  priority: number | null
   position: number
   updatedAt: string
 }

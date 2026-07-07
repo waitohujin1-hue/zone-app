@@ -4,9 +4,12 @@ import type { TodoItem } from '../shared/types'
 export function TodoPanel({ compact = false }: { compact?: boolean }) {
   const [todos, setTodos] = useState<TodoItem[]>([])
   const [text, setText] = useState('')
+  const [newEstimate, setNewEstimate] = useState('')
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [editingEstimateId, setEditingEstimateId] = useState<string | null>(null)
   const [estimateInput, setEstimateInput] = useState('')
+  const [editingTextId, setEditingTextId] = useState<string | null>(null)
+  const [textInput, setTextInput] = useState('')
 
   useEffect(() => {
     window.zone.todos.list().then(setTodos)
@@ -15,8 +18,19 @@ export function TodoPanel({ compact = false }: { compact?: boolean }) {
   const add = async () => {
     const trimmed = text.trim()
     if (!trimmed) return
-    setTodos(await window.zone.todos.add(trimmed))
+    // Debug-only escape hatch: typing "stop" force-ends the active session
+    // instead of adding a todo, so testing end-of-session doesn't require
+    // waiting out a real timer.
+    if (trimmed.toLowerCase() === 'stop') {
+      await window.zone.session.debugStop()
+      setText('')
+      return
+    }
+    const estimateTrimmed = newEstimate.trim()
+    const estimatedMinutes = estimateTrimmed === '' ? null : Math.max(0, Math.round(Number(estimateTrimmed)))
+    setTodos(await window.zone.todos.add(trimmed, Number.isFinite(estimatedMinutes) ? estimatedMinutes : null))
     setText('')
+    setNewEstimate('')
   }
 
   const toggle = async (id: string) => {
@@ -38,7 +52,18 @@ export function TodoPanel({ compact = false }: { compact?: boolean }) {
     const [moved] = next.splice(fromIndex, 1)
     next.splice(toIndex, 0, moved)
     setTodos(next)
-    await window.zone.todos.reorder(next.map((t) => t.id))
+    setTodos(await window.zone.todos.reorder(next.map((t) => t.id)))
+  }
+
+  const startEditText = (t: TodoItem) => {
+    setEditingTextId(t.id)
+    setTextInput(t.text)
+  }
+
+  const saveText = async (id: string) => {
+    const trimmed = textInput.trim()
+    if (trimmed) setTodos(await window.zone.todos.rename(id, trimmed))
+    setEditingTextId(null)
   }
 
   const startEditEstimate = (t: TodoItem) => {
@@ -66,6 +91,17 @@ export function TodoPanel({ compact = false }: { compact?: boolean }) {
             if (e.key === 'Enter') void add()
           }}
         />
+        <input
+          type="number"
+          min={0}
+          className="todo-add-estimate"
+          value={newEstimate}
+          placeholder="分"
+          onChange={(e) => setNewEstimate(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void add()
+          }}
+        />
         <button onClick={() => void add()}>追加</button>
       </div>
       <ul className="todo-list">
@@ -84,33 +120,71 @@ export function TodoPanel({ compact = false }: { compact?: boolean }) {
                   : 'todo-item'
             }
           >
+            <span
+              className="todo-priority-badge"
+              title="優先順位(タスクの並び順そのもの。ドラッグして並べ替えると変わります)"
+            >
+              優先度 {t.priority ?? '-'}
+            </span>
+            <span className="todo-text-row">
+              <input type="checkbox" checked={t.done} onChange={() => void toggle(t.id)} />
+              {editingTextId === t.id ? (
+                <>
+                  <input
+                    type="text"
+                    autoFocus
+                    className="todo-text-input"
+                    value={textInput}
+                    onChange={(e) => setTextInput(e.target.value)}
+                    onBlur={() => void saveText(t.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void saveText(t.id)
+                      if (e.key === 'Escape') setEditingTextId(null)
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <button
+                    type="button"
+                    className="todo-text-confirm"
+                    aria-label="確定"
+                    // Without this, clicking the button first blurs the input,
+                    // which saves via onBlur and re-renders the button away
+                    // before its own click ever fires -- same end result, but
+                    // suppressing the blur here makes it fire once, on purpose.
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => void saveText(t.id)}
+                  >
+                    ✓
+                  </button>
+                </>
+              ) : (
+                <span className="todo-text" onClick={() => startEditText(t)}>
+                  {t.text}
+                </span>
+              )}
+            </span>
             <span className="todo-drag-handle" aria-hidden="true">
               ⋮⋮
             </span>
-            <label>
-              <input type="checkbox" checked={t.done} onChange={() => void toggle(t.id)} />
-              <span>{t.text}</span>
-            </label>
-            {!compact &&
-              (editingEstimateId === t.id ? (
-                <input
-                  type="number"
-                  min={0}
-                  autoFocus
-                  className="todo-estimate-input"
-                  value={estimateInput}
-                  placeholder="見積(分)"
-                  onChange={(e) => setEstimateInput(e.target.value)}
-                  onBlur={() => void saveEstimate(t.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') void saveEstimate(t.id)
-                  }}
-                />
-              ) : (
-                <button className="todo-estimate-badge" onClick={() => startEditEstimate(t)}>
-                  {t.actualMinutes}分{t.estimatedMinutes != null ? ` / 見積${t.estimatedMinutes}分` : ''}
-                </button>
-              ))}
+            {editingEstimateId === t.id ? (
+              <input
+                type="number"
+                min={0}
+                autoFocus
+                className="todo-estimate-input"
+                value={estimateInput}
+                placeholder="見積(分)"
+                onChange={(e) => setEstimateInput(e.target.value)}
+                onBlur={() => void saveEstimate(t.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void saveEstimate(t.id)
+                }}
+              />
+            ) : (
+              <button className="todo-estimate-badge" onClick={() => startEditEstimate(t)}>
+                {t.actualMinutes}分{t.estimatedMinutes != null ? ` / 見積${t.estimatedMinutes}分` : ''}
+              </button>
+            )}
             <button className="todo-remove" onClick={() => void remove(t.id)} aria-label="削除">
               ×
             </button>

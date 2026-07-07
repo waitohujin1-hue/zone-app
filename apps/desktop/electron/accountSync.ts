@@ -1,6 +1,6 @@
 import { store } from './store.ts'
 import { getSupabaseClient, getUserId } from './accountAuth.ts'
-import type { TodoItem, ScheduleBlock, FocusRecord } from '../src/shared/types.ts'
+import type { TodoItem, ScheduleBlock, FocusRecord, TodoPriority } from '../src/shared/types.ts'
 
 // Scope note: only todos, schedule blocks (source:'zone' only -- Google's own
 // events are never pushed back), and focus history are synced. Settings and
@@ -20,6 +20,7 @@ export async function pushTodoUpsert(todo: TodoItem, position: number): Promise<
       done: todo.done,
       estimated_minutes: todo.estimatedMinutes,
       actual_minutes: todo.actualMinutes,
+      priority: todo.priority,
       position,
       updated_at: new Date(todo.updatedAt).toISOString(),
     })
@@ -94,6 +95,7 @@ interface RemoteTodoRow {
   done: boolean
   estimated_minutes: number | null
   actual_minutes: number
+  priority: TodoPriority
   position: number
   updated_at: string
 }
@@ -134,6 +136,7 @@ function mergeTodos(remoteRows: RemoteTodoRow[]) {
         updatedAt: remoteUpdatedAt,
         estimatedMinutes: row.estimated_minutes,
         actualMinutes: row.actual_minutes,
+        priority: row.priority,
       })
     }
   }

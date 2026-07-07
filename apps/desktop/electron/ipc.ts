@@ -9,6 +9,7 @@ import type {
   AppSettings,
   CreateScheduleBlockInput,
   UpdateScheduleBlockInput,
+  TodoItem,
 } from '../src/shared/types.ts'
 import { listVisibleApps } from './visibleApps.ts'
 import { listFrequentSites } from './browserHistory.ts'
@@ -32,6 +33,13 @@ function clampBlockTimes(startMinutes: number, durationMinutes: number) {
   return { start, duration }
 }
 
+// TODO order IS priority: every todo's `priority` always equals its 1-based
+// position in the list. Whenever the list's order changes (add/remove/move),
+// the whole array gets renumbered so the two can never drift apart.
+function renumberPriorities(todos: TodoItem[]): TodoItem[] {
+  return todos.map((t, i) => (t.priority === i + 1 ? t : { ...t, priority: i + 1, updatedAt: Date.now() }))
+}
+
 // Every schedule:* handler returns this same merged (zone + google-cache)
 // shape for the affected date, so a local mutation never makes the
 // previously-fetched Google events disappear from the renderer's view.
@@ -45,14 +53,19 @@ function listForDateMerged(date: string) {
 export function registerIpcHandlers(sessionManager: SessionManager) {
   ipcMain.handle('session:get', () => sessionManager.getState())
   ipcMain.handle('session:start', (_event, config: SessionConfig) => sessionManager.start(config))
+  ipcMain.handle('session:debugStop', () => sessionManager.debugForceFinish())
 
   ipcMain.handle('settings:get', () => store.get('settings'))
   ipcMain.handle('settings:set', (_event, settings: AppSettings) => {
     store.set('settings', settings)
   })
 
-  ipcMain.handle('todos:get', () => store.get('todos'))
-  ipcMain.handle('todos:add', (_event, text: string) => {
+  ipcMain.handle('todos:get', () => {
+    const todos = renumberPriorities(store.get('todos'))
+    store.set('todos', todos)
+    return todos
+  })
+  ipcMain.handle('todos:add', (_event, text: string, estimatedMinutes: number | null) => {
     const todos = store.get('todos')
     const created = {
       id: randomUUID(),
@@ -60,13 +73,15 @@ export function registerIpcHandlers(sessionManager: SessionManager) {
       done: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      estimatedMinutes: null,
+      estimatedMinutes,
       actualMinutes: 0,
+      priority: null,
     }
     todos.unshift(created)
-    store.set('todos', todos)
-    void pushTodoUpsert(created, 0)
-    return todos
+    const renumbered = renumberPriorities(todos)
+    store.set('todos', renumbered)
+    renumbered.forEach((t, index) => void pushTodoUpsert(t, index))
+    return renumbered
   })
   ipcMain.handle('todos:toggle', (_event, id: string) => {
     const todos = store.get('todos').map((t) => (t.id === id ? { ...t, done: !t.done, updatedAt: Date.now() } : t))
@@ -76,17 +91,30 @@ export function registerIpcHandlers(sessionManager: SessionManager) {
     return todos
   })
   ipcMain.handle('todos:remove', (_event, id: string) => {
-    const todos = store.get('todos').filter((t) => t.id !== id)
-    store.set('todos', todos)
+    const remaining = store.get('todos').filter((t) => t.id !== id)
+    const renumbered = renumberPriorities(remaining)
+    store.set('todos', renumbered)
     void pushTodoDelete(id)
-    return todos
+    renumbered.forEach((t, index) => void pushTodoUpsert(t, index))
+    return renumbered
   })
   ipcMain.handle('todos:reorder', (_event, orderedIds: string[]) => {
     const byId = new Map(store.get('todos').map((t) => [t.id, t]))
     const reordered = orderedIds.map((id) => byId.get(id)).filter((t) => t !== undefined)
-    store.set('todos', reordered)
-    reordered.forEach((todo, index) => void pushTodoUpsert(todo, index))
-    return reordered
+    const renumbered = renumberPriorities(reordered)
+    store.set('todos', renumbered)
+    renumbered.forEach((todo, index) => void pushTodoUpsert(todo, index))
+    return renumbered
+  })
+  ipcMain.handle('todos:rename', (_event, id: string, text: string) => {
+    const trimmed = text.trim()
+    const todos = store.get('todos')
+    if (!trimmed) return todos
+    const updated = todos.map((t) => (t.id === id ? { ...t, text: trimmed, updatedAt: Date.now() } : t))
+    store.set('todos', updated)
+    const renamed = updated.find((t) => t.id === id)
+    if (renamed) void pushTodoUpsert(renamed, updated.indexOf(renamed))
+    return updated
   })
   ipcMain.handle('todos:setEstimate', (_event, id: string, minutes: number | null) => {
     const todos = store
@@ -180,10 +208,12 @@ export function registerIpcHandlers(sessionManager: SessionManager) {
       updatedAt: Date.now(),
       estimatedMinutes: existing.durationMinutes,
       actualMinutes: 0,
+      priority: null,
     }
     todos.unshift(newTodo)
-    store.set('todos', todos)
-    void pushTodoUpsert(newTodo, 0)
+    const renumbered = renumberPriorities(todos)
+    store.set('todos', renumbered)
+    renumbered.forEach((t, index) => void pushTodoUpsert(t, index))
     const updated = blocks.map((b) => (b.id === id ? { ...b, todoId: newTodo.id, lastModified: Date.now() } : b))
     store.set('scheduleBlocks', updated)
     const updatedBlock = updated.find((b) => b.id === id)

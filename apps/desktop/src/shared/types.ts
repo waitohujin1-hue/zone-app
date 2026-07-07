@@ -36,6 +36,9 @@ export interface SessionState {
   idleNudgeSeconds: number
 }
 
+/** Priority rank -- lower number = higher priority (1 is top priority). null = unranked. */
+export type TodoPriority = number | null
+
 export interface TodoItem {
   id: string
   text: string
@@ -44,6 +47,7 @@ export interface TodoItem {
   updatedAt: number
   estimatedMinutes: number | null
   actualMinutes: number
+  priority: TodoPriority
 }
 
 export interface FocusRecord {
@@ -136,6 +140,8 @@ export interface ZoneApi {
     get: () => Promise<SessionState>
     start: (config: SessionConfig) => Promise<SessionState>
     onUpdate: (cb: (state: SessionState) => void) => () => void
+    /** Debug-only: force-ends the active session immediately. */
+    debugStop: () => Promise<void>
   }
   settings: {
     get: () => Promise<AppSettings>
@@ -143,10 +149,11 @@ export interface ZoneApi {
   }
   todos: {
     list: () => Promise<TodoItem[]>
-    add: (text: string) => Promise<TodoItem[]>
+    add: (text: string, estimatedMinutes: number | null) => Promise<TodoItem[]>
     toggle: (id: string) => Promise<TodoItem[]>
     remove: (id: string) => Promise<TodoItem[]>
     reorder: (orderedIds: string[]) => Promise<TodoItem[]>
+    rename: (id: string, text: string) => Promise<TodoItem[]>
     setEstimate: (id: string, minutes: number | null) => Promise<TodoItem[]>
   }
   history: {
