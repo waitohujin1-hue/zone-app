@@ -44,3 +44,41 @@ export function initAutoUpdate(getWin: () => BrowserWindow | null): void {
     autoUpdater.checkForUpdates().catch(() => {})
   }, CHECK_INTERVAL_MS)
 }
+
+// Unlike the silent background check above, this one is user-triggered (via
+// the help menu) and always reports its outcome -- there's otherwise no way
+// to tell a "no update available" result apart from a swallowed failure.
+export async function checkForUpdatesManually(win: BrowserWindow | null): Promise<void> {
+  const parent = win ?? (undefined as unknown as BrowserWindow)
+  if (!app.isPackaged) {
+    await dialog.showMessageBox(parent, {
+      type: 'info',
+      title: 'アップデートの確認',
+      message: '開発モードではアップデートを確認できません。',
+    })
+    return
+  }
+  try {
+    const result = await autoUpdater.checkForUpdates()
+    const latestVersion = result?.updateInfo.version
+    if (latestVersion && latestVersion !== app.getVersion()) {
+      await dialog.showMessageBox(parent, {
+        type: 'info',
+        title: 'アップデートの確認',
+        message: `新しいバージョン(${latestVersion})が見つかりました。ダウンロードが完了すると再起動を確認するダイアログが表示されます。`,
+      })
+    } else {
+      await dialog.showMessageBox(parent, {
+        type: 'info',
+        title: 'アップデートの確認',
+        message: `現在お使いのバージョン(${app.getVersion()})が最新です。`,
+      })
+    }
+  } catch (err) {
+    await dialog.showMessageBox(parent, {
+      type: 'error',
+      title: 'アップデートの確認に失敗しました',
+      message: err instanceof Error ? err.message : String(err),
+    })
+  }
+}

@@ -1,7 +1,7 @@
 {
   "name": "@zone/desktop",
   "private": true,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "zone - focus timer, app/site blocking, pomodoro, todo, and focus BGM",
   "author": "zone",
   "type": "module",

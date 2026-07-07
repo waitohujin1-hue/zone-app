@@ -6,7 +6,7 @@ import { SessionManager } from './session.ts'
 import { registerIpcHandlers } from './ipc.ts'
 import { pushFocusRecord, pushTodoUpsert, pullAccountData } from './accountSync.ts'
 import { store } from './store.ts'
-import { initAutoUpdate } from './autoUpdate.ts'
+import { initAutoUpdate, checkForUpdatesManually } from './autoUpdate.ts'
 import { openReleaseNotesWindow } from './releaseNotes.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -67,6 +67,10 @@ function buildAppMenu(): void {
           {
             label: 'リリースノート',
             click: () => openReleaseNotesWindow(APP_ROOT),
+          },
+          {
+            label: 'アップデートを確認',
+            click: () => void checkForUpdatesManually(win),
           },
         ],
       },
