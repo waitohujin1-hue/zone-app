@@ -157,6 +157,7 @@ export interface ZoneApi {
     onUpdate: (cb: (state: SessionState) => void) => () => void
     pause: () => Promise<PauseResult>
     resume: () => Promise<SessionState>
+    extend: (minutes: number) => Promise<SessionState>
     /** Debug-only: force-ends the active session immediately. */
     debugStop: () => Promise<void>
   }

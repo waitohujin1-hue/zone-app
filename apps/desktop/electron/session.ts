@@ -18,6 +18,7 @@ const TICK_MS = 1000
 const SITE_ENFORCE_MS = 2000
 const MAX_PAUSES_PER_SESSION = 3
 const MAX_PAUSE_DURATION_MS = 5 * 60_000
+const END_WARNING_MS = 5 * 60_000
 
 function notifyPhaseChange(title: string, body: string): void {
   if (!Notification.isSupported()) return
@@ -60,6 +61,7 @@ export class SessionManager {
   private siteEnforceTimer: ReturnType<typeof setInterval> | null = null
   private processGuard = new ProcessGuard()
   private pomodoroConfigCache: PomodoroConfig | null = null
+  private endWarningShown = false
   private getWindow: () => BrowserWindow | null
   private onSessionFinished?: (record: FocusRecord, updatedTodo: TodoItem | null) => void
 
@@ -130,8 +132,20 @@ export class SessionManager {
     return this.state
   }
 
+  /** Voluntary extension, offered via the 5-minutes-remaining warning (see tick()). */
+  extendSession(minutes: number): SessionState {
+    if (!this.state.active || this.state.endsAt === null) return this.state
+    this.state.endsAt += Math.max(1, Math.round(minutes)) * 60_000
+    // Re-arm the warning so it fires again ahead of the new (later) end time.
+    this.endWarningShown = false
+    this.persist()
+    this.emit()
+    return this.state
+  }
+
   async start(config: SessionConfig): Promise<SessionState> {
     if (this.state.active) return this.state
+    this.endWarningShown = false
     const now = Date.now()
     const linkedTodo = config.focusTodoId ? store.get('todos').find((t) => t.id === config.focusTodoId) : undefined
     this.state = {
@@ -196,6 +210,10 @@ export class SessionManager {
     if (this.state.endsAt !== null && now >= this.state.endsAt) {
       this.finish()
       return
+    }
+    if (!this.endWarningShown && this.state.endsAt !== null && this.state.endsAt - now <= END_WARNING_MS) {
+      this.endWarningShown = true
+      notifyPhaseChange('セッションがまもなく終了します', '残り5分です。延長しますか?')
     }
     if (this.state.mode === 'pomodoro' && this.state.phaseEndsAt !== null && now >= this.state.phaseEndsAt) {
       this.advancePomodoroPhase(now)

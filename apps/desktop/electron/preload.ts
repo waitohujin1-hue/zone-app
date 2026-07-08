@@ -27,6 +27,7 @@ const api: ZoneApi = {
     },
     pause: (): Promise<PauseResult> => ipcRenderer.invoke('session:pause'),
     resume: (): Promise<SessionState> => ipcRenderer.invoke('session:resume'),
+    extend: (minutes: number): Promise<SessionState> => ipcRenderer.invoke('session:extend', minutes),
     debugStop: (): Promise<void> => ipcRenderer.invoke('session:debugStop'),
   },
   settings: {

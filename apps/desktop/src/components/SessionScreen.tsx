@@ -1,6 +1,10 @@
+import { useEffect, useState } from 'react'
 import type { SessionState } from '../shared/types'
 import { TodoPanel } from './TodoPanel'
 import { BgmPlayer } from './BgmPlayer'
+
+const END_WARNING_MS = 5 * 60_000
+const EXTEND_PRESETS = [15, 25, 45]
 
 function formatDuration(ms: number): string {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000))
@@ -33,11 +37,35 @@ export function SessionScreen({ session }: { session: SessionState }) {
   }
   const resume = () => void window.zone.session.resume()
 
+  // Dismissing just hides the banner for the current threshold window --
+  // extending naturally pushes `remaining` back out past END_WARNING_MS, so
+  // the banner reappears on its own if it dips under 5 minutes again later.
+  const [dismissed, setDismissed] = useState(false)
+  useEffect(() => setDismissed(false), [session.startedAt])
+  const showEndWarning = !session.paused && remaining > 0 && remaining <= END_WARNING_MS && !dismissed
+  const extend = (minutes: number) => void window.zone.session.extend(minutes)
+
   return (
     <div className="session-screen">
       <div className="session-lock-banner">
         セッション実行中 — 終了までロックされています(自分で停止することはできません)
       </div>
+
+      {showEndWarning && (
+        <div className="session-end-warning">
+          <div>セッションがまもなく終了します(残り{formatDuration(remaining)})。延長しますか?</div>
+          <div className="session-end-warning-actions">
+            {EXTEND_PRESETS.map((m) => (
+              <button key={m} className="session-pause-button" onClick={() => extend(m)}>
+                +{m}分
+              </button>
+            ))}
+            <button className="link-button" onClick={() => setDismissed(true)}>
+              延長しない
+            </button>
+          </div>
+        </div>
+      )}
 
       {session.paused ? (
         <div className="session-pause-banner">
