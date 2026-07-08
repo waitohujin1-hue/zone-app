@@ -20,8 +20,9 @@ export function TodoPanel({ compact = false }: { compact?: boolean }) {
     if (!trimmed) return
     // Debug-only escape hatch: typing "stop" force-ends the active session
     // instead of adding a todo, so testing end-of-session doesn't require
-    // waiting out a real timer.
-    if (trimmed.toLowerCase() === 'stop') {
+    // waiting out a real timer. NFKC first so IME full-width "ｓｔｏｐ" (a
+    // common input-conversion artifact) still matches.
+    if (trimmed.normalize('NFKC').toLowerCase() === 'stop') {
       await window.zone.session.debugStop()
       setText('')
       return

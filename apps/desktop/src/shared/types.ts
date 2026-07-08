@@ -34,6 +34,21 @@ export interface SessionState {
   hostsBlockActive: boolean
   idleSeconds: number
   idleNudgeSeconds: number
+  // Pausing never lifts the lock/blocking -- it only pushes endsAt (and
+  // phaseEndsAt) later by however long the pause lasted, so the committed
+  // focus time is preserved rather than eaten into. See session.ts.
+  paused: boolean
+  pauseStartedAt: number | null
+  pausesUsed: number
+  pausesRemaining: number
+  /** Accumulated paused duration, subtracted out of the final focus-time tally in finish(). */
+  totalPausedMs: number
+}
+
+export interface PauseResult {
+  ok: boolean
+  error?: string
+  state: SessionState
 }
 
 /** Priority rank -- lower number = higher priority (1 is top priority). null = unranked. */
@@ -140,6 +155,8 @@ export interface ZoneApi {
     get: () => Promise<SessionState>
     start: (config: SessionConfig) => Promise<SessionState>
     onUpdate: (cb: (state: SessionState) => void) => () => void
+    pause: () => Promise<PauseResult>
+    resume: () => Promise<SessionState>
     /** Debug-only: force-ends the active session immediately. */
     debugStop: () => Promise<void>
   }

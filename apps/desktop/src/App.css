@@ -425,6 +425,41 @@
   margin-bottom: 20px;
 }
 
+.session-pause-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.session-pause-banner {
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--accent);
+  color: var(--text-h);
+  text-align: center;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.session-pause-button {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent);
+  color: var(--text-h);
+  border-radius: 100px;
+  padding: 6px 16px;
+  font-size: 13px;
+}
+
+.session-pause-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .session-focus-task {
   text-align: center;
   font-size: 18px;

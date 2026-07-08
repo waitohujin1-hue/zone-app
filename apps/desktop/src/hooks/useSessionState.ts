@@ -18,6 +18,11 @@ const IDLE_STATE: SessionState = {
   hostsBlockActive: false,
   idleSeconds: 0,
   idleNudgeSeconds: 0,
+  paused: false,
+  pauseStartedAt: null,
+  pausesUsed: 0,
+  pausesRemaining: 0,
+  totalPausedMs: 0,
 }
 
 export function useSessionState() {

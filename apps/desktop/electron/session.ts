@@ -5,10 +5,19 @@ import { store } from './store.ts'
 import { ProcessGuard } from './processGuard.ts'
 import { applyHostsBlock, clearHostsBlock } from './hostsBlocker.ts'
 import { closeWindowsMatchingSites } from './windowCloser.ts'
-import type { SessionConfig, SessionState, PomodoroConfig, FocusRecord, TodoItem } from '../src/shared/types.ts'
+import type {
+  SessionConfig,
+  SessionState,
+  PomodoroConfig,
+  FocusRecord,
+  TodoItem,
+  PauseResult,
+} from '../src/shared/types.ts'
 
 const TICK_MS = 1000
 const SITE_ENFORCE_MS = 2000
+const MAX_PAUSES_PER_SESSION = 3
+const MAX_PAUSE_DURATION_MS = 5 * 60_000
 
 function notifyPhaseChange(title: string, body: string): void {
   if (!Notification.isSupported()) return
@@ -32,6 +41,11 @@ function idleState(): SessionState {
     hostsBlockActive: false,
     idleSeconds: 0,
     idleNudgeSeconds: 0,
+    paused: false,
+    pauseStartedAt: null,
+    pausesUsed: 0,
+    pausesRemaining: 0,
+    totalPausedMs: 0,
   }
 }
 
@@ -79,6 +93,43 @@ export class SessionManager {
     this.finish()
   }
 
+  /**
+   * Pausing never lifts the lock -- blocking (processGuard/hosts) and
+   * idle detection keep running exactly as before. All it does is stop
+   * endsAt/phaseEndsAt from approaching; resume() pushes them back out by
+   * however long the pause lasted, so the committed focus time is
+   * preserved rather than shortened. Capped in count and duration (see
+   * MAX_PAUSES_PER_SESSION/MAX_PAUSE_DURATION_MS) so this stays a tool for
+   * brief real interruptions (a call, the bathroom) and not a loophole.
+   */
+  pause(): PauseResult {
+    if (!this.state.active) return { ok: false, error: 'no active session', state: this.state }
+    if (this.state.paused) return { ok: false, error: 'already paused', state: this.state }
+    if (this.state.pausesUsed >= MAX_PAUSES_PER_SESSION) {
+      return { ok: false, error: 'このセッションで使える一時停止の回数を使い切りました', state: this.state }
+    }
+    this.state.paused = true
+    this.state.pauseStartedAt = Date.now()
+    this.state.pausesUsed += 1
+    this.state.pausesRemaining = MAX_PAUSES_PER_SESSION - this.state.pausesUsed
+    this.persist()
+    this.emit()
+    return { ok: true, state: this.state }
+  }
+
+  resume(): SessionState {
+    if (!this.state.active || !this.state.paused || this.state.pauseStartedAt === null) return this.state
+    const pausedMs = Math.min(Date.now() - this.state.pauseStartedAt, MAX_PAUSE_DURATION_MS)
+    this.state.totalPausedMs += pausedMs
+    if (this.state.endsAt !== null) this.state.endsAt += pausedMs
+    if (this.state.phaseEndsAt !== null) this.state.phaseEndsAt += pausedMs
+    this.state.paused = false
+    this.state.pauseStartedAt = null
+    this.persist()
+    this.emit()
+    return this.state
+  }
+
   async start(config: SessionConfig): Promise<SessionState> {
     if (this.state.active) return this.state
     const now = Date.now()
@@ -99,6 +150,11 @@ export class SessionManager {
       hostsBlockActive: false,
       idleSeconds: 0,
       idleNudgeSeconds: store.get('settings').idleNudgeMinutes * 60,
+      paused: false,
+      pauseStartedAt: null,
+      pausesUsed: 0,
+      pausesRemaining: MAX_PAUSES_PER_SESSION,
+      totalPausedMs: 0,
     }
     this.persist()
     await this.enforceStart(config.pomodoro)
@@ -132,6 +188,11 @@ export class SessionManager {
   private tick() {
     if (!this.state.active) return
     const now = Date.now()
+    if (this.state.paused && this.state.pauseStartedAt !== null) {
+      if (now - this.state.pauseStartedAt >= MAX_PAUSE_DURATION_MS) this.resume()
+      else this.emit()
+      return
+    }
     if (this.state.endsAt !== null && now >= this.state.endsAt) {
       this.finish()
       return
@@ -168,7 +229,7 @@ export class SessionManager {
         id: randomUUID(),
         startedAt: finished.startedAt,
         endedAt: Date.now(),
-        durationMinutes: Math.round((Date.now() - finished.startedAt) / 60_000),
+        durationMinutes: Math.round((Date.now() - finished.startedAt - finished.totalPausedMs) / 60_000),
         interruptionsBlocked: finished.interruptionsBlocked,
         mode: finished.mode,
       }

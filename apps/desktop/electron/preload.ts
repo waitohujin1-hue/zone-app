@@ -13,6 +13,7 @@ import type {
   UpdateScheduleBlockInput,
   AccountAuthStatus,
   AccountLoginResult,
+  PauseResult,
 } from '../src/shared/types.ts'
 
 const api: ZoneApi = {
@@ -24,6 +25,8 @@ const api: ZoneApi = {
       ipcRenderer.on('session:update', listener)
       return () => ipcRenderer.removeListener('session:update', listener)
     },
+    pause: (): Promise<PauseResult> => ipcRenderer.invoke('session:pause'),
+    resume: (): Promise<SessionState> => ipcRenderer.invoke('session:resume'),
     debugStop: (): Promise<void> => ipcRenderer.invoke('session:debugStop'),
   },
   settings: {

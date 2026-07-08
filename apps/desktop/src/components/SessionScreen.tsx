@@ -19,14 +19,45 @@ const PHASE_LABELS: Record<string, string> = {
 
 export function SessionScreen({ session }: { session: SessionState }) {
   const now = Date.now()
-  const remaining = session.endsAt ? session.endsAt - now : 0
-  const phaseRemaining = session.phaseEndsAt ? session.phaseEndsAt - now : 0
+  // While paused, endsAt/phaseEndsAt stay fixed until resume() pushes them
+  // out -- freeze the displayed countdown at the pause moment instead of
+  // letting it drift down against the still-advancing wall clock.
+  const referenceNow = session.paused && session.pauseStartedAt ? session.pauseStartedAt : now
+  const remaining = session.endsAt ? session.endsAt - referenceNow : 0
+  const phaseRemaining = session.phaseEndsAt ? session.phaseEndsAt - referenceNow : 0
+  const pausedFor = session.paused && session.pauseStartedAt ? now - session.pauseStartedAt : 0
+
+  const pause = async () => {
+    const result = await window.zone.session.pause()
+    if (!result.ok && result.error) window.alert(result.error)
+  }
+  const resume = () => void window.zone.session.resume()
 
   return (
     <div className="session-screen">
       <div className="session-lock-banner">
         セッション実行中 — 終了までロックされています(自分で停止することはできません)
       </div>
+
+      {session.paused ? (
+        <div className="session-pause-banner">
+          一時停止中({formatDuration(pausedFor)}経過、長時間放置すると自動的に再開します) —
+          <button className="session-pause-button" onClick={resume}>
+            再開する
+          </button>
+        </div>
+      ) : (
+        <div className="session-pause-row">
+          <button
+            className="session-pause-button"
+            onClick={() => void pause()}
+            disabled={session.pausesRemaining <= 0}
+            title="ロックは維持されたまま、一時停止した分だけセッションの終了時刻が延長されます"
+          >
+            一時停止(残り{session.pausesRemaining}回)
+          </button>
+        </div>
+      )}
 
       {session.focusTaskText && <div className="session-focus-task">🎯 {session.focusTaskText}</div>}
 

@@ -53,6 +53,8 @@ function listForDateMerged(date: string) {
 export function registerIpcHandlers(sessionManager: SessionManager) {
   ipcMain.handle('session:get', () => sessionManager.getState())
   ipcMain.handle('session:start', (_event, config: SessionConfig) => sessionManager.start(config))
+  ipcMain.handle('session:pause', () => sessionManager.pause())
+  ipcMain.handle('session:resume', () => sessionManager.resume())
   ipcMain.handle('session:debugStop', () => sessionManager.debugForceFinish())
 
   ipcMain.handle('settings:get', () => store.get('settings'))
